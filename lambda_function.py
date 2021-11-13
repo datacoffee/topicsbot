@@ -24,6 +24,8 @@ def lambda_handler(event, context):
             response = episode(message)
         elif "#news" in message["text"] and message["text"].strip() != "#news":
             response = save_news(message)
+        elif message["text"].startswith("/delete "):
+            response = delete(message)
         
         if response:
             http = urllib3.PoolManager()
@@ -119,4 +121,25 @@ def episode(message):
         item['episode'] = ep_num
         table.put_item(Item=item)
         response = f'News saved for episode #{ep_num}'
+    return response
+
+
+def delete(message):
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table(TABLE)
+    key = boto3.dynamodb.conditions.Key('episode').eq('next')
+    items = table.query(
+        KeyConditionExpression=key
+    )
+    response = ''
+    for authors in items['Items']:
+        for item in authors['news']:
+            if item['added'] == message["text"].replace('/delete ', ''):
+                response += 'Deleted: ' + item['text'] + '\n'
+                authors['news'].remove(item)
+                resp = table.put_item(Item=authors)
+    if "ResponseMetadata" in resp.keys() and resp["ResponseMetadata"]["HTTPStatusCode"] == 200:
+        response += "Done!"
+    else:
+        response = "Can't save changes!"
     return response
