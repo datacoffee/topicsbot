@@ -16,8 +16,8 @@ def lambda_handler(event, context):
         message = event["message"]
         
         if str(chat_id) != CHANNEL:
-            response = f"Chat {chat_id} is not allowed"
-            # return {"statusCode": 404}
+            # response = f"Chat {chat_id} is not allowed"
+            return {"statusCode": 404}
         elif message["text"].startswith("/list"):
             response = get_list()
         elif message["text"].startswith("/episode "):
@@ -58,7 +58,7 @@ def get_list():
     for authors in items['Items']:
         response += f"\n from @{authors['author']}"
         for item in authors['news']:
-            response += f"\n- {item['added']}, {item['text']}"
+            response += f"\n- {item['added']}, {item['text'][:30]}..."
     response += ''
     return response
 
