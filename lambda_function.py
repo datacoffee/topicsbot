@@ -18,11 +18,11 @@ def lambda_handler(event, context):
         if str(chat_id) != CHANNEL:
             response = f"Chat {chat_id} is not allowed"
             # return {"statusCode": 404}
-        elif message["text"] == "/list":
+        elif message["text"].startswith("/list"):
             response = get_list()
         elif message["text"].startswith("/episode "):
             response = episode(message)
-        elif "#news" in message["text"]:
+        elif "#news" in message["text"] and message["text"].strip() != "#news":
             response = save_news(message)
         
         if response:
