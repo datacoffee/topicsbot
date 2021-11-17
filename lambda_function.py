@@ -16,30 +16,34 @@ def lambda_handler(event, context):
         message = event["message"]
         
         if str(chat_id) != CHANNEL:
-            response = f"Chat {chat_id} is not allowed"
-            # return {"statusCode": 404}
-        elif message["text"] == "/list":
+            # response = f"Chat {chat_id} is not allowed"
+            return {"statusCode": 404}
+        elif message["text"].startswith("/list"):
             response = get_list()
         elif message["text"].startswith("/episode "):
             response = episode(message)
-        elif "#news" in message["text"]:
+        elif "#news" in message["text"] and message["text"].strip() != "#news":
             response = save_news(message)
+        elif message["text"].startswith("/delete "):
+            response = delete(message)
         
         if response:
             http = urllib3.PoolManager()
-            print(response)
-            data = {
-                "text": response,
-                "chat_id": chat_id,
-                "parse_mode": 'HTML',
-                'disable_web_page_preview': True
-            }
-            encoded_data = json.dumps(data).encode('utf-8')
-            url = BASE_URL + "/sendMessage"
-            resp = http.request('POST',
-                                url,
-                                headers={'Content-Type': 'application/json'},
-                                body=encoded_data)
+            s = response
+            n = 4096
+            for response_chunk in [s[k:k+n] for k in range(0, len(s), n)]:
+                data = {
+                    "text": response_chunk,
+                    "chat_id": chat_id,
+                    "parse_mode": 'HTML',
+                    'disable_web_page_preview': True
+                }
+                encoded_data = json.dumps(data).encode('utf-8')
+                url = BASE_URL + "/sendMessage"
+                resp = http.request('POST',
+                                    url,
+                                    headers={'Content-Type': 'application/json'},
+                                    body=encoded_data)
     except Exception as e:
         print(f"An error occurred: {e}")
     return {"statusCode": 200}
@@ -56,7 +60,7 @@ def get_list():
     for authors in items['Items']:
         response += f"\n from @{authors['author']}"
         for item in authors['news']:
-            response += f"\n- {item['added']}, {item['text']}"
+            response += f"\n- {item['added']}, {item['text']}..."
     response += ''
     return response
 
@@ -119,4 +123,25 @@ def episode(message):
         item['episode'] = ep_num
         table.put_item(Item=item)
         response = f'News saved for episode #{ep_num}'
+    return response
+
+
+def delete(message):
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table(TABLE)
+    key = boto3.dynamodb.conditions.Key('episode').eq('next')
+    items = table.query(
+        KeyConditionExpression=key
+    )
+    response = ''
+    for authors in items['Items']:
+        for item in authors['news']:
+            if item['added'] == message["text"].replace('/delete ', ''):
+                response += 'Deleted: ' + item['text'] + '\n'
+                authors['news'].remove(item)
+                resp = table.put_item(Item=authors)
+    if "ResponseMetadata" in resp.keys() and resp["ResponseMetadata"]["HTTPStatusCode"] == 200:
+        response += "Done!"
+    else:
+        response = "Can't save changes!"
     return response
