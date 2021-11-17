@@ -29,19 +29,21 @@ def lambda_handler(event, context):
         
         if response:
             http = urllib3.PoolManager()
-            print(response)
-            data = {
-                "text": response,
-                "chat_id": chat_id,
-                "parse_mode": 'HTML',
-                'disable_web_page_preview': True
-            }
-            encoded_data = json.dumps(data).encode('utf-8')
-            url = BASE_URL + "/sendMessage"
-            resp = http.request('POST',
-                                url,
-                                headers={'Content-Type': 'application/json'},
-                                body=encoded_data)
+            s = response
+            n = 4096
+            for response_chunk in [s[k:k+n] for k in range(0, len(s), n)]:
+                data = {
+                    "text": response_chunk,
+                    "chat_id": chat_id,
+                    "parse_mode": 'HTML',
+                    'disable_web_page_preview': True
+                }
+                encoded_data = json.dumps(data).encode('utf-8')
+                url = BASE_URL + "/sendMessage"
+                resp = http.request('POST',
+                                    url,
+                                    headers={'Content-Type': 'application/json'},
+                                    body=encoded_data)
     except Exception as e:
         print(f"An error occurred: {e}")
     return {"statusCode": 200}
@@ -58,7 +60,7 @@ def get_list():
     for authors in items['Items']:
         response += f"\n from @{authors['author']}"
         for item in authors['news']:
-            response += f"\n- {item['added']}, {item['text'][:30]}..."
+            response += f"\n- {item['added']}, {item['text']}..."
     response += ''
     return response
 
