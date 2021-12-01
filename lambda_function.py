@@ -30,8 +30,10 @@ def lambda_handler(event, context):
             response = get_list(message["text"])
         elif message["text"].startswith("/gsheet"):
             response = export_to_spreadsheet()
-        elif message["text"].startswith("/episode "):
+        elif message["text"].startswith("/episode"):
             response = episode(message)
+        elif message["text"].startswith("/restore"):
+            response = restore(message)
         elif "#news" in message["text"] and message["text"].strip() != "#news":
             response = save_news(message)
         elif message["text"].startswith("/delete "):
@@ -139,26 +141,52 @@ def save_news(message):
 
 
 def episode(message):
-    dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table(TABLE)
-    key = boto3.dynamodb.conditions.Key('episode').eq('next')
-    items = table.query(
-        KeyConditionExpression=key
-    )
-    
-    ep_num = message['text'].replace("/episode ", '')
-    if ep_num.strip() == '':
+    words = message['text'].split(' ')
+    if len(words) == 1:
         response = 'Episode # must be specified'
-    for item in items['Items']:
-        table.delete_item(
-            Key={
-                "episode": item['episode'],
-                "author": item['author']
-            }
+    else:
+        dynamodb = boto3.resource('dynamodb')
+        table = dynamodb.Table(TABLE)
+        key = boto3.dynamodb.conditions.Key('episode').eq('next')
+        items = table.query(
+            KeyConditionExpression=key
         )
-        item['episode'] = ep_num
-        table.put_item(Item=item)
-        response = f'News saved for episode #{ep_num}'
+        episode = ' '.join(words[1:])
+        for item in items['Items']:
+            table.delete_item(
+                Key={
+                    "episode": item['episode'],
+                    "author": item['author']
+                }
+            )
+            item['episode'] = episode
+            table.put_item(Item=item)
+            response = f'News saved for episode {episode}'
+    return response
+
+
+def restore(message):
+    words = message['text'].split(' ')
+    if len(words) == 1:
+        response = 'Episode # must be specified'
+    else:
+        dynamodb = boto3.resource('dynamodb')
+        table = dynamodb.Table(TABLE)
+        episode = ' '.join(words[1:])
+        key = boto3.dynamodb.conditions.Key('episode').eq(episode)
+        items = table.query(
+            KeyConditionExpression=key
+        )
+        for item in items['Items']:
+            table.delete_item(
+                Key={
+                    "episode": item['episode'],
+                    "author": item['author']
+                }
+            )
+            item['episode'] = 'next'
+            table.put_item(Item=item)
+            response = 'News restored'
     return response
 
 
