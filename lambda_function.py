@@ -27,7 +27,7 @@ def lambda_handler(event, context):
             # response = f"Chat {chat_id} is not allowed"
             return {"statusCode": 404}
         elif message["text"].startswith("/list"):
-            response = get_list()
+            response = get_list(message["text"])
         elif message["text"].startswith("/gsheet"):
             response = export_to_spreadsheet()
         elif message["text"].startswith("/episode "):
@@ -59,14 +59,16 @@ def lambda_handler(event, context):
     return {"statusCode": 200}
 
 
-def get_list():
+def get_list(message):
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(TABLE)
-    key = boto3.dynamodb.conditions.Key('episode').eq('next')
+    words = message.split(' ')
+    episode = words[1] if len(words) == 2 else 'next'
+    key = boto3.dynamodb.conditions.Key('episode').eq(episode)
     items = table.query(
         KeyConditionExpression=key
     )
-    response = 'News'
+    response = f'News for episode {episode}'
     for authors in items['Items']:
         response += f"\n from @{authors['author']}"
         for item in authors['news']:
