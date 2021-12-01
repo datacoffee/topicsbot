@@ -71,6 +71,7 @@ def get_list():
         response += f"\n from @{authors['author']}"
         for item in authors['news']:
             response += f"\n- {item['added']}, {item['text']}"
+        response += "\n"
     response += ''
     return response
 
