@@ -89,7 +89,7 @@ def export_to_spreadsheet():
         current_row = int(GCP_START_ROW)
         for authors in items['Items']:
             for item in authors['news']:
-                worksheet.update(f'{GCP_DATE_COLUMN}{str(current_row)}', item['added'])
+                # worksheet.update(f'{GCP_DATE_COLUMN}{str(current_row)}', item['added'])
                 worksheet.update(f'{GCP_AUTHOR_COLUMN}{str(current_row)}', f"@{authors['author']}")
                 worksheet.update(f'{GCP_NEWS_COLUMN}{str(current_row)}', item['text'])
                 current_row += 1
