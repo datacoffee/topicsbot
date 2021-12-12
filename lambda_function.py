@@ -38,6 +38,10 @@ def lambda_handler(event, context):
             response = save_news(message)
         elif message["text"].startswith("/delete "):
             response = delete(message)
+        elif message["text"].startswith("/record"):
+            response = chapter(message)
+        elif message["text"].startswith("/chapter_"):
+            response = chapter(message)
         
         if response:
             http = urllib3.PoolManager()
@@ -74,7 +78,7 @@ def get_list(message):
     for authors in items['Items']:
         response += f"\n from @{authors['author']}"
         for item in authors['news']:
-            response += f"\n- {item['added']}, {item['text']}"
+            response += f"\n- /chapter_{get_id(item['added'])}, {item['text']}"
         response += "\n"
     return response
 
@@ -208,4 +212,52 @@ def delete(message):
         response += "Done!"
     else:
         response = "Can't save changes!"
+    return response
+
+
+def get_id(dttm_str):
+    dttm = datetime.strptime(dttm_str, "%m/%d/%Y, %H:%M:%S")
+    return dttm.strftime("%Y%m%d%H%M%S")
+
+
+def get_dttm_from_id(news_id):
+    dttm = datetime.strptime(news_id, "%Y%m%d%H%M%S")
+    return dttm.strftime("%m/%d/%Y, %H:%M:%S")
+
+
+def chapter(message):
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table(TABLE)
+    item = table.get_item(
+        Key={
+            "episode": "next",
+            "author": "@chapters"
+        }
+    )
+    news_id = message["text"].replace('/chapter_', '').replace('/record', '')
+    dttm = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+    if 'Item' in item:
+        item = item['Item']
+        item['chapters'].append(
+            {
+                "added": dttm,
+                "news_id": news_id
+            }
+        )
+    else:
+        item = {
+            "episode": "next",
+            "author": "@chapters",
+            "chapters": [
+                {
+                    "added": dttm,
+                    "news_id": news_id
+                }
+            ]
+        }
+    table.put_item(Item=item)
+    if news_id:
+        response = f'Chapter {news_id} at {dttm})'
+    else:
+        response = f'Recording has been started, {dttm}'
     return response
