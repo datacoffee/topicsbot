@@ -37,7 +37,7 @@ def lambda_handler(event, context):
             response = restore(message)
         elif "#news" in message["text"] and message["text"].strip() != "#news":
             response = save_news(message)
-        elif message["text"].startswith("/delete "):
+        elif message["text"].startswith("/delete_"):
             response = delete(message)
         elif message["text"].startswith("/record"):
             response = chapter(message)
@@ -81,7 +81,7 @@ def get_list(message):
     for authors in [x for x in items['Items'] if 'news' in x.keys()]:
         response += f"\n from @{authors['author']}"
         for item in authors['news']:
-            response += f"\n- /chapter_{get_id(item['added'])}, {item['text']}"
+            response += f"\n- /chapter_{get_id(item['added'])}, /delete_{get_id(item['added'])}, {item['text']}"
         response += "\n"
     return response
 
@@ -205,9 +205,9 @@ def delete(message):
         KeyConditionExpression=key
     )
     response = ''
-    for authors in items['Items']:
+    for authors in [x for x in items['Items'] if 'news' in x.keys()]:
         for item in authors['news']:
-            if item['added'] == message["text"].replace('/delete ', ''):
+            if get_id(item['added']) == message["text"].replace('/delete_', ''):
                 response += 'Deleted: ' + item['text'] + '\n'
                 authors['news'].remove(item)
                 resp = table.put_item(Item=authors)
