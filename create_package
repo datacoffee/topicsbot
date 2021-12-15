@@ -1,0 +1,42 @@
+#!/bin/bash
+
+display_help() {
+   # Display Help
+   echo "======================================"
+   echo "   Lambda zip-package generator"
+   echo "======================================"
+   echo "Syntax: ./create_package [command] [folder]"
+   echo
+   echo "---commands---"
+   echo "pkg [folder]           Creates package from folder"
+   echo "help                   Shows this help"
+   echo
+}
+
+case "$1" in
+pkg)
+    if [ -z $2 ]; then
+        echo "No folder specified!"
+    else
+        CURDIR="$PWD"
+        WORKDIR="$CURDIR/$2"
+        docker run --rm -v $WORKDIR:/var/task "python:3.9-slim-buster" /bin/sh -c "cd /var/task;pip3.9 install -r requirements.txt -t python/lib/python3.9/site-packages/; exit"
+        cd $WORKDIR/python/lib/python3.9/site-packages
+        rm $WORKDIR/python/lib/python3.9/site-packages/CHANGELOG.md
+        rm $WORKDIR/python/lib/python3.9/site-packages/LICENSE
+        rm $WORKDIR/python/lib/python3.9/site-packages/README.md
+        zip -r $WORKDIR/lambda.zip .
+        cd $WORKDIR
+        zip -r lambda.zip lambda_function.py
+        cd $CURDIR
+        rm -rf $WORKDIR/python
+    fi
+    ;;
+help)
+    display_help
+    ;;
+*)
+    echo "No command specified, displaying help"
+    display_help
+    ;;
+esac

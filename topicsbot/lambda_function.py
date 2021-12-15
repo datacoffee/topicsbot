@@ -9,6 +9,7 @@ TOKEN = os.environ['TELEGRAM_TOKEN']
 CHANNEL = os.environ['NEWS_CHANNEL']
 TABLE = os.environ['DYNAMO_TABLE']
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
+LAMBDA_DIGEST = os.environ['LAMBDA_DIGEST']
 GCP_JSON = json.loads(os.environ['GCP_JSON'])
 GCP_SPREADSHEET = os.environ['GCP_SPREADSHEET']
 GCP_WORKSHEET = os.environ['GCP_WORKSHEET']
@@ -42,6 +43,8 @@ def lambda_handler(event, context):
             response = chapter(message)
         elif message["text"].startswith("/chapter_"):
             response = chapter(message)
+        elif message["text"].startswith("/digest"):
+            response = digest(message)
         
         if response:
             http = urllib3.PoolManager()
@@ -75,7 +78,7 @@ def get_list(message):
         KeyConditionExpression=key
     )
     response = f'News for episode {episode}'
-    for authors in items['Items']:
+    for authors in [x for x in items['Items'] if 'news' in x.keys()]:
         response += f"\n from @{authors['author']}"
         for item in authors['news']:
             response += f"\n- /chapter_{get_id(item['added'])}, {item['text']}"
@@ -95,7 +98,7 @@ def export_to_spreadsheet():
         sh = gc.open(GCP_SPREADSHEET)
         worksheet = sh.worksheet(GCP_WORKSHEET)
         current_row = int(GCP_START_ROW)
-        for authors in items['Items']:
+        for authors in [x for x in items['Items'] if 'news' in x.keys()]:
             for item in authors['news']:
                 # worksheet.update(f'{GCP_DATE_COLUMN}{str(current_row)}', item['added'])
                 worksheet.update(f'{GCP_AUTHOR_COLUMN}{str(current_row)}', f"@{authors['author']}")
@@ -261,3 +264,20 @@ def chapter(message):
     else:
         response = f'Recording has been started, {dttm}'
     return response
+
+
+def digest(message):
+    client = boto3.client('lambda')
+    inputParams = {
+        "episode": "next"
+    }
+    response = client.invoke(
+        FunctionName=LAMBDA_DIGEST,
+        InvocationType='RequestResponse',
+        Payload=json.dumps(inputParams)
+    )
+
+    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+        return "Digest Lambda was invoked"
+    else:
+        return "Error in Digest Lambda invokation"

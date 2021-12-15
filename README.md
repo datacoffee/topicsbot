@@ -1,10 +1,10 @@
 # topicsbot
 
-Бот для сбора новостей в Telegram-чате
+AWS Lambdas для сбора/обработки новостей в Telegram-чате
 
-Работает через AWS Lambda, данные сохраняет в AWS DynamoDB
+Данные сохраняются в AWS DynamoDB
 
-### Обязательные параметры Lambda
+### Обязательные параметры для **topicsbot**
 
 DYNAMO_TABLE - таблица для сохранения данных
 
@@ -25,3 +25,15 @@ GCP_DATE_COLUMN - столбец для дат
 GCP_AUTHOR_COLUMN - столбец для автора
 
 GCP_NEWS_COLUMN - столбец для текста новости
+
+LAMBDA_DIGEST - AWS ARN, ссылающийся на Lambda digest
+
+### Обязательные параметры для **digest**
+
+DYNAMO_TABLE - таблица для чтения данных
+
+GITHUB_TOKEN - GitHub API token для доступа к GitHub
+
+GITHUB_REPO - репозиторий для сохранения дайджеста
+
+GITHUB_BRANCH - branch для сохранения дайджеста
