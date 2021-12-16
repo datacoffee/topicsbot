@@ -29,9 +29,9 @@ def get_chapters(episode):
         for item in chapters['chapters']:
             text, links = split_news(get_text(items, item['news_id']))
             link = links[0] if len(links) > 0 else ""
-            dttm = datetime.strptime(item['added'], "%m/%d/%Y, %H:%M:%S") - timedelta(seconds=SECONDS_BACK)
+            dttm = datetime.strptime(item['added'], "%m/%d/%Y, %H:%M:%S")
             if item['news_id'] == "":
-                prev_dttm = dttm
+                prev_dttm = dttm + timedelta(seconds=SECONDS_BACK)
                 time_delta = dttm - dttm
                 cnt = 0
                 # considering only last /record command
