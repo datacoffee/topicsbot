@@ -28,6 +28,8 @@ GCP_NEWS_COLUMN - столбец для текста новости
 
 LAMBDA_DIGEST - AWS ARN, ссылающийся на Lambda digest
 
+LAMBDA_CHAPTERS - AWS ARN, ссылающийся на Lambda chapters
+
 ### Обязательные параметры для **digest**
 
 DYNAMO_TABLE - таблица для чтения данных
@@ -37,3 +39,7 @@ GITHUB_TOKEN - GitHub API token для доступа к GitHub
 GITHUB_REPO - репозиторий для сохранения дайджеста
 
 GITHUB_BRANCH - branch для сохранения дайджеста
+
+### Обязательные параметры для **chapters**
+
+DYNAMO_TABLE - таблица для чтения данных
