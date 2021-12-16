@@ -1,10 +1,12 @@
 import os
+import re
 # import json
 import boto3
 # from eyed3.id3 import Tag
 from datetime import datetime
 
 TABLE = os.environ['DYNAMO_TABLE']
+CHAPTERS_LENGHT = int(os.environ['CHAPTERS_LENGHT'])
 
 
 def lambda_handler(event, context):
@@ -22,28 +24,37 @@ def get_chapters(episode):
     items = table.query(
         KeyConditionExpression=key
     )
-    prev_dttm = datetime.now()
     for chapters in [x for x in items['Items'] if 'chapters' in x.keys()]:
         for item in chapters['chapters']:
             text, links = split_news(get_text(items, item['news_id']))
+            link = links[0] if len(links) > 0 else ""
             dttm = datetime.strptime(item['added'], "%m/%d/%Y, %H:%M:%S")
             if item['news_id'] == "":
+                prev_dttm = dttm
                 time_delta = dttm - dttm
                 cnt = 0
                 # considering only last /record command
-                response = f"\nM{str(cnt)},{text[:50]},{links[0]},{format_time(time_delta)}" 
+                response = f'\n"M{str(cnt)}","{cut_text(text)}","{link}","{format_time(time_delta)}"'
             else:
                 time_delta = dttm - prev_dttm
                 cnt += 1
-                response += f"\nM{str(cnt)},{text[:50]},{links[0]},{format_time(time_delta)}"
-            prev_dttm = dttm
+                response += f'\n"M{str(cnt)}","{cut_text(text)}","{link}","{format_time(time_delta)}"'
     return '#,Name,Link,Start' + response
 
 
 def split_news(news_str):
+    links = re.findall(r'(https?://[^\s]+)', news_str)
     text = news_str.strip()
-    links = [""]
+    for link in links:
+        text = text.replace(link, '')
+    text = re.sub(' +', ' ', text).strip().replace('"', "'").capitalize()
     return (text, links)
+
+
+def cut_text(text):
+    if len(text) > CHAPTERS_LENGHT:
+        text = text[:CHAPTERS_LENGHT-3].strip() + "..."
+    return text
 
 
 def format_time(tdelta):
@@ -57,7 +68,7 @@ def get_text(items, newsid):
     response = "Introduction"
     for authors in [x for x in items['Items'] if 'news' in x.keys()]:
         for item in authors['news']:
-            if get_id(item['added']) == newsid:
+            if get_id(item['added']) == newsid.split('@')[0]:
                 response = item['text']
     return response
 

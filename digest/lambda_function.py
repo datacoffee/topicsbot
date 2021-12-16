@@ -1,4 +1,5 @@
 import os
+import re
 import boto3
 from github import Github
 from datetime import datetime
@@ -43,7 +44,11 @@ type = "post"
     for authors in [x for x in items['Items'] if 'news' in x.keys()]:
         for item in authors['news']:
             # TODO: add an icon if this piece of news was discussed in podcast
-            content += f"\n- {item['text']}"
+            text, links = split_news(item['text'])
+            content += f"\n- {text}"
+            for pos, link in enumerate(links):
+                link_text = "link" + str(pos) if pos > 0 else ""
+                content += f", [{link_text}]({link})"
 
     file_name = f'content/posts/{PUB_DTTM.strftime("%m%d%Y")}.ru.md'
     try:
@@ -62,3 +67,12 @@ type = "post"
                          prev_contents.sha,
                          branch=GITHUB_BRANCH)
     return {'response': f"File: {file_name}"}
+
+
+def split_news(news_str):
+    links = re.findall(r'(https?://[^\s]+)', news_str)
+    text = news_str.strip()
+    for link in links:
+        text = text.replace(link, '')
+    text = re.sub(' +', ' ', text).strip().replace('"', "'").capitalize()
+    return (text, links)
