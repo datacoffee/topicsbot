@@ -61,3 +61,4 @@ type = "post"
                          content,
                          prev_contents.sha,
                          branch=GITHUB_BRANCH)
+    return {'response': f"File: {file_name}"}

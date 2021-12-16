@@ -10,6 +10,7 @@ CHANNEL = os.environ['NEWS_CHANNEL']
 TABLE = os.environ['DYNAMO_TABLE']
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
 LAMBDA_DIGEST = os.environ['LAMBDA_DIGEST']
+LAMBDA_CHAPTERS = os.environ['LAMBDA_CHAPTERS']
 GCP_JSON = json.loads(os.environ['GCP_JSON'])
 GCP_SPREADSHEET = os.environ['GCP_SPREADSHEET']
 GCP_WORKSHEET = os.environ['GCP_WORKSHEET']
@@ -44,7 +45,9 @@ def lambda_handler(event, context):
         elif message["text"].startswith("/chapter_"):
             response = chapter(message)
         elif message["text"].startswith("/digest"):
-            response = digest(message)
+            response = invoke_lambda(LAMBDA_DIGEST, 'digest')
+        elif message["text"].startswith("/get_chapters"):
+            response = invoke_lambda(LAMBDA_CHAPTERS, 'get_chapters')
         
         if response:
             http = urllib3.PoolManager()
@@ -266,18 +269,19 @@ def chapter(message):
     return response
 
 
-def digest(message):
+def invoke_lambda(arn, cmd):
     client = boto3.client('lambda')
     inputParams = {
-        "episode": "next"
+        "episode": "next",
+        "action": cmd
     }
     response = client.invoke(
-        FunctionName=LAMBDA_DIGEST,
+        FunctionName=arn,
         InvocationType='RequestResponse',
         Payload=json.dumps(inputParams)
     )
 
     if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-        return "Digest Lambda was invoked"
+        return json.loads(response['Payload'].read())['response']
     else:
-        return "Error in Digest Lambda invokation"
+        return "Error in Lambda invocation"
