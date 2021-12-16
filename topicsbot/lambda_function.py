@@ -240,7 +240,7 @@ def chapter(message):
             "author": "@chapters"
         }
     )
-    news_id = message["text"].replace('/chapter_', '').replace('/record', '')
+    news_id = message["text"].replace('/chapter_', '').replace('/record', '').split('@')[0]
     dttm = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
     if 'Item' in item:
         item = item['Item']
