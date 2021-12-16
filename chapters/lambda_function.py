@@ -3,10 +3,11 @@ import re
 # import json
 import boto3
 # from eyed3.id3 import Tag
-from datetime import datetime
+from datetime import datetime, timedelta
 
 TABLE = os.environ['DYNAMO_TABLE']
 CHAPTERS_LENGHT = int(os.environ['CHAPTERS_LENGHT'])
+SECONDS_BACK = int(os.environ['SECONDS_BACK'])
 
 
 def lambda_handler(event, context):
@@ -28,7 +29,7 @@ def get_chapters(episode):
         for item in chapters['chapters']:
             text, links = split_news(get_text(items, item['news_id']))
             link = links[0] if len(links) > 0 else ""
-            dttm = datetime.strptime(item['added'], "%m/%d/%Y, %H:%M:%S")
+            dttm = datetime.strptime(item['added'], "%m/%d/%Y, %H:%M:%S") - timedelta(seconds=SECONDS_BACK)
             if item['news_id'] == "":
                 prev_dttm = dttm
                 time_delta = dttm - dttm
