@@ -47,7 +47,7 @@ type = "post"
             text, links = split_news(item['text'])
             content += f"\n- {text}"
             for pos, link in enumerate(links):
-                link_text = "link" + str(pos) if pos > 0 else ""
+                link_text = "link" + str(pos) if pos > 0 else "link"
                 content += f", [{link_text}]({link})"
 
     file_name = f'content/posts/{PUB_DTTM.strftime("%m%d%Y")}.ru.md'
@@ -74,5 +74,6 @@ def split_news(news_str):
     text = news_str.strip()
     for link in links:
         text = text.replace(link, '')
-    text = re.sub(' +', ' ', text).strip().replace('"', "'").capitalize()
+    text = re.sub(' +', ' ', text).strip().replace('"', "'")
+    text = text[:1].upper() + text[1:]
     return (text, links)
