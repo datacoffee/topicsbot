@@ -28,22 +28,29 @@ def lambda_handler(event, context):
         if str(chat_id) != CHANNEL:
             # response = f"Chat {chat_id} is not allowed"
             return {"statusCode": 404}
+        elif "#news" in message["text"] and message["text"].strip() != "#news":  # WORKS
+            response = save_news(message)
         elif message["text"].startswith("/list"):
-            response = get_list(message["text"])
+            cmd = message["text"].split()
+            response = get_list(cmd[1].strip() if len(cmd) > 1 else 'next')
         elif message["text"].startswith("/gsheet"):
             response = export_to_spreadsheet()
         elif message["text"].startswith("/episode"):
-            response = episode(message)
+            cmd = message["text"].split()
+            response = move_episode('next', cmd[1].strip() if len(cmd) > 1 else 'next')
         elif message["text"].startswith("/restore"):
-            response = restore(message)
-        elif "#news" in message["text"] and message["text"].strip() != "#news":
-            response = save_news(message)
+            cmd = message["text"].split()
+            response = move_episode(cmd[1].strip() if len(cmd) > 1 else 'next', 'next')
         elif message["text"].startswith("/delete_"):
-            response = delete(message)
+            news_id = message["text"].replace('/delete_', '').split('@')[0]
+            response = delete(news_id)
         elif message["text"].startswith("/record"):
-            response = chapter(message)
+            response = get_list('next')
+            response += chapter()
         elif message["text"].startswith("/chapter_"):
-            response = chapter(message)
+            news_id = message["text"].replace('/chapter_', '').split('@')[0]
+            response = get_list('next', news_id)
+            response += chapter(news_id)
         elif message["text"].startswith("/digest"):
             response = invoke_lambda(LAMBDA_DIGEST, 'digest')
         elif message["text"].startswith("/get_chapters"):
@@ -71,21 +78,30 @@ def lambda_handler(event, context):
     return {"statusCode": 200}
 
 
-def get_list(message):
+def get_list(episode='next', curr_news_id=None):
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(TABLE)
-    words = message.split(' ')
-    episode = words[1] if len(words) == 2 else 'next'
     key = boto3.dynamodb.conditions.Key('episode').eq(episode)
     items = table.query(
         KeyConditionExpression=key
     )
-    response = f'News for episode {episode}'
-    for authors in [x for x in items['Items'] if 'news' in x.keys()]:
-        response += f"\n from @{authors['author']}"
-        for item in authors['news']:
-            response += f"\n- /chapter_{get_id(item['added'])}, /delete_{get_id(item['added'])}, {item['text']}"
-        response += "\n"
+    discussed = []
+    current = []
+    not_discussed = []
+    for record in items['Items']:
+        for item in record['news']:
+            if get_id(item['added']) == curr_news_id:
+                news_str = f"\n👉<b> {item['text']}</b>"
+                current.append(news_str)
+            elif len(item['chapters']) == 0:
+                news_str = f"\n- /chapter_{get_id(item['added'])}, /delete_{get_id(item['added'])}, {item['text']}"
+                not_discussed.append(news_str)
+            else:
+                news_str = f"\n<i><strike>- {item['text']}</strike></i>"
+                discussed.append(news_str)
+    response = f'Episode: {episode}'
+    for news_str in discussed + current + not_discussed:
+        response += news_str
     return response
 
 
@@ -114,110 +130,76 @@ def export_to_spreadsheet():
 
 
 def save_news(message):
+    news = message["text"].replace('#news', '').strip()
+    dttm = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(TABLE)
     item = table.get_item(
         Key={
-            "episode": "next",
-            "author": message["from"]["username"]
+            "episode": "next"
         }
     )
     if 'Item' in item:
         item = item['Item']
         item['news'].append(
             {
-                "added": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
-                "text": message["text"].replace('#news', '')
+                "added": dttm,
+                "text": news,
+                "author": message["from"]["username"],
+                "chapters": []
             }
         )
     else:
         item = {
             "episode": "next",
-            "author": message["from"]["username"],
+            "records": [],
             "news": [
                 {
-                    "added": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
-                    "text": message["text"].replace('#news', '')
+                    "added": dttm,
+                    "text": news,
+                    "author": message["from"]["username"],
+                    "chapters": []
                 }
             ]
         }
-    resp = table.put_item(Item=item)
-    if "ResponseMetadata" in resp.keys() and resp["ResponseMetadata"]["HTTPStatusCode"] == 200:
-        response = "Saved!"
-    else:
-        print(resp)
-        response = "Saving Error!"
-    return response
+    table.put_item(Item=item)
+    return 'Saved!'
 
 
-def episode(message):
-    words = message['text'].split(' ')
-    if len(words) == 1:
-        response = 'Episode # must be specified'
-    else:
-        dynamodb = boto3.resource('dynamodb')
-        table = dynamodb.Table(TABLE)
-        key = boto3.dynamodb.conditions.Key('episode').eq('next')
-        items = table.query(
-            KeyConditionExpression=key
+def move_episode(ep_from, ep_to):
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table(TABLE)
+    key = boto3.dynamodb.conditions.Key('episode').eq(ep_from)
+    items = table.query(
+        KeyConditionExpression=key
+    )
+    for item in items['Items']:
+        table.delete_item(
+            Key={
+                "episode": item['episode']
+            }
         )
-        episode = ' '.join(words[1:])
-        for item in items['Items']:
-            table.delete_item(
-                Key={
-                    "episode": item['episode'],
-                    "author": item['author']
-                }
-            )
-            item['episode'] = episode
-            table.put_item(Item=item)
-            response = f'News saved for episode {episode}'
+        item['episode'] = ep_to
+        table.put_item(Item=item)
+    response = f'News moved from {ep_from} to {ep_to}'
     return response
 
 
-def restore(message):
-    words = message['text'].split(' ')
-    if len(words) == 1:
-        response = 'Episode # must be specified'
-    else:
-        dynamodb = boto3.resource('dynamodb')
-        table = dynamodb.Table(TABLE)
-        episode = ' '.join(words[1:])
-        key = boto3.dynamodb.conditions.Key('episode').eq(episode)
-        items = table.query(
-            KeyConditionExpression=key
-        )
-        for item in items['Items']:
-            table.delete_item(
-                Key={
-                    "episode": item['episode'],
-                    "author": item['author']
-                }
-            )
-            item['episode'] = 'next'
-            table.put_item(Item=item)
-            response = 'News restored'
-    return response
-
-
-def delete(message):
+def delete(news_id):
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(TABLE)
     key = boto3.dynamodb.conditions.Key('episode').eq('next')
     items = table.query(
         KeyConditionExpression=key
     )
-    response = ''
-    for authors in [x for x in items['Items'] if 'news' in x.keys()]:
+    for authors in items['Items']:
         for item in authors['news']:
-            if get_id(item['added']) == message["text"].replace('/delete_', ''):
-                response += 'Deleted: ' + item['text'] + '\n'
+            if get_id(item['added']) == news_id:
                 authors['news'].remove(item)
-                resp = table.put_item(Item=authors)
-    if "ResponseMetadata" in resp.keys() and resp["ResponseMetadata"]["HTTPStatusCode"] == 200:
-        response += "Done!"
-    else:
-        response = "Can't save changes!"
+                table.put_item(Item=authors)
+                response = 'Deleted: ' + item['text']
+    if 'response' not in locals():
+        response = 'Cannot find news to delete OR there was an error'
     return response
 
 
@@ -231,41 +213,31 @@ def get_dttm_from_id(news_id):
     return dttm.strftime("%m/%d/%Y, %H:%M:%S")
 
 
-def chapter(message):
+def chapter(news_id=None):
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(TABLE)
-    item = table.get_item(
-        Key={
-            "episode": "next",
-            "author": "@chapters"
-        }
+    key = boto3.dynamodb.conditions.Key('episode').eq('next')
+    items = table.query(
+        KeyConditionExpression=key
     )
-    news_id = message["text"].replace('/chapter_', '').replace('/record', '').split('@')[0]
     dttm = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
-    if 'Item' in item:
-        item = item['Item']
-        item['chapters'].append(
-            {
-                "added": dttm,
-                "news_id": news_id
-            }
-        )
-    else:
-        item = {
-            "episode": "next",
-            "author": "@chapters",
-            "chapters": [
-                {
-                    "added": dttm,
-                    "news_id": news_id
-                }
-            ]
-        }
-    table.put_item(Item=item)
     if news_id:
-        response = f'Chapter {news_id} at {dttm})'
+        for record in items['Items']:
+            if len(record['records']) > 0:
+                for item in record['news']:
+                    if get_id(item['added']) == news_id:
+                        # response = item['text']
+                        item['chapters'].append(dttm)
+                        table.put_item(Item=record)
+                        response = f'Chapter {news_id} started at {dttm}'
+            else:
+                response = 'Firstly, record should be started with /record'
     else:
-        response = f'Recording has been started, {dttm}'
+        for record in items['Items']:
+            record['records'].append(dttm)
+            table.put_item(Item=record)
+        response = f'Recording started at {dttm}'
+    response = '\n\n' + response
     return response
 
 
