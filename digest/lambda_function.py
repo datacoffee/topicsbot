@@ -41,13 +41,14 @@ type = "post"
     items = table.query(
         KeyConditionExpression=key
     )
-    for authors in [x for x in items['Items'] if 'news' in x.keys()]:
-        for item in authors['news']:
+    for record in items['Items']:
+        for item in record['news']:
             # TODO: add an icon if this piece of news was discussed in podcast
             text, links = split_news(item['text'])
-            content += f"\n- {text}"
+            discussed = '🎧' if len(item['chapters']) > 0 else ''
+            content += f"\n- {discussed} {text}"
             for pos, link in enumerate(links):
-                link_text = "link" + str(pos) if pos > 0 else ""
+                link_text = "link" + (str(pos) if pos > 0 else "")
                 content += f", [{link_text}]({link})"
 
     file_name = f'content/posts/{PUB_DTTM.strftime("%m%d%Y")}.ru.md'
