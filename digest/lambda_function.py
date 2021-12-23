@@ -75,5 +75,6 @@ def split_news(news_str):
     text = news_str.strip()
     for link in links:
         text = text.replace(link, '')
-    text = re.sub(' +', ' ', text).strip().replace('"', "'").capitalize()
+    text = re.sub(' +', ' ', text).strip().replace('"', "'")
+    text = text[:1].upper() + text[1:]
     return (text, links)
