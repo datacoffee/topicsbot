@@ -117,10 +117,10 @@ def export_to_spreadsheet():
         sh = gc.open(GCP_SPREADSHEET)
         worksheet = sh.worksheet(GCP_WORKSHEET)
         current_row = int(GCP_START_ROW)
-        for authors in [x for x in items['Items'] if 'news' in x.keys()]:
-            for item in authors['news']:
+        for record in items['Items']:
+            for item in record['news']:
                 # worksheet.update(f'{GCP_DATE_COLUMN}{str(current_row)}', item['added'])
-                worksheet.update(f'{GCP_AUTHOR_COLUMN}{str(current_row)}', f"@{authors['author']}")
+                worksheet.update(f'{GCP_AUTHOR_COLUMN}{str(current_row)}', f"@{item['author']}")
                 worksheet.update(f'{GCP_NEWS_COLUMN}{str(current_row)}', item['text'])
                 current_row += 1
         response = 'News list was exported to Google spreadsheet'
