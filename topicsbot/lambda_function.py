@@ -24,9 +24,11 @@ def lambda_handler(event, context):
     try:
         chat_id = event["message"]["chat"]["id"]
         message = event["message"]
+        thread_id = message["message_thread_id"] if "message_thread_id" in message else False
         
         if str(chat_id) != CHANNEL:
-            # response = f"Chat {chat_id} is not allowed"
+            # response = f"Chat {chat_id} is not allowed\n"
+            # response += str(event["message"])
             return {"statusCode": 404}
         elif "#news" in message["text"] and message["text"].strip() != "#news":  # WORKS
             response = save_news(message)
@@ -67,6 +69,8 @@ def lambda_handler(event, context):
                     "parse_mode": 'HTML',
                     'disable_web_page_preview': True
                 }
+                if thread_id:
+                    data["message_thread_id"] = thread_id
                 encoded_data = json.dumps(data).encode('utf-8')
                 url = BASE_URL + "/sendMessage"
                 resp = http.request('POST',
