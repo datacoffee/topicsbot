@@ -18,6 +18,7 @@ GCP_START_ROW = os.environ['GCP_START_ROW']
 GCP_DATE_COLUMN = os.environ['GCP_DATE_COLUMN']
 GCP_AUTHOR_COLUMN = os.environ['GCP_AUTHOR_COLUMN']
 GCP_NEWS_COLUMN = os.environ['GCP_NEWS_COLUMN']
+GSHEET_LINK = os.environ['GSHEET_LINK']
 
 
 def lambda_handler(event, context):
@@ -127,7 +128,7 @@ def export_to_spreadsheet():
                 worksheet.update(f'{GCP_AUTHOR_COLUMN}{str(current_row)}', f"@{item['author']}")
                 worksheet.update(f'{GCP_NEWS_COLUMN}{str(current_row)}', item['text'])
                 current_row += 1
-        response = 'News list was exported to Google spreadsheet'
+        response = f'News list was exported to Google spreadsheet: {GSHEET_LINK}'
     except Exception as e:
         response = f'Error: {e}'
     return response
