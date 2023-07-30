@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import boto3
 import urllib3
@@ -18,6 +19,7 @@ GCP_START_ROW = os.environ['GCP_START_ROW']
 GCP_DATE_COLUMN = os.environ['GCP_DATE_COLUMN']
 GCP_AUTHOR_COLUMN = os.environ['GCP_AUTHOR_COLUMN']
 GCP_NEWS_COLUMN = os.environ['GCP_NEWS_COLUMN']
+GCP_LINKS_COLUMN = os.environ['GCP_LINKS_COLUMN']
 GSHEET_LINK = os.environ['GSHEET_LINK']
 
 
@@ -121,13 +123,35 @@ def export_to_spreadsheet():
         gc = gspread.service_account_from_dict(GCP_JSON)
         sh = gc.open(GCP_SPREADSHEET)
         worksheet = sh.worksheet(GCP_WORKSHEET)
-        current_row = int(GCP_START_ROW)
-        for record in items['Items']:
-            for item in record['news']:
-                # worksheet.update(f'{GCP_DATE_COLUMN}{str(current_row)}', item['added'])
-                worksheet.update(f'{GCP_AUTHOR_COLUMN}{str(current_row)}', f"@{item['author']}")
-                worksheet.update(f'{GCP_NEWS_COLUMN}{str(current_row)}', item['text'])
-                current_row += 1
+        
+        all_dates: list[list[str]] = list()
+        all_authors: list[list[str]] = list()
+        all_news_texts: list[list[str]] = list()
+        all_news_links: list[list[str]] = list()
+
+        for item in items['Items'][0]['news']:
+            all_dates.append([item['added']])
+            all_authors.append([f"@{item['author']}"])
+            news_value: str = item['text']
+            news_text, links = split_news(news_value)
+            all_news_texts.append([news_text])
+            all_news_links.append([' '.join(links)])
+
+        column_len: int = len(items['Items'][0]['news'])
+        end_row: int = int(GCP_START_ROW) + column_len
+        
+        dates_update_range = f'{GCP_DATE_COLUMN}{GCP_START_ROW}:{GCP_DATE_COLUMN}{end_row}'
+        worksheet.update(f'{dates_update_range}', all_dates)
+        
+        author_update_range = f'{GCP_AUTHOR_COLUMN}{GCP_START_ROW}:{GCP_AUTHOR_COLUMN}{end_row}'
+        worksheet.update(f'{author_update_range}', all_authors)
+        
+        news_update_range = f'{GCP_NEWS_COLUMN}{GCP_START_ROW}:{GCP_NEWS_COLUMN}{end_row}'
+        worksheet.update(f'{news_update_range}', all_news_texts)
+        
+        links_update_range = f'{GCP_LINKS_COLUMN}{GCP_START_ROW}:{GCP_LINKS_COLUMN}{end_row}'
+        worksheet.update(f'{links_update_range}', all_news_links)
+        
         response = f'News list was exported to Google spreadsheet: {GSHEET_LINK}'
     except Exception as e:
         response = f'Error: {e}'
@@ -262,3 +286,12 @@ def invoke_lambda(arn, cmd):
         return json.loads(response['Payload'].read())['response']
     else:
         return "Error in Lambda invocation"
+
+def split_news(news_str):
+    links = re.findall(r'(https?://[^\s]+)', news_str)
+    text = news_str.strip()
+    for link in links:
+        text = text.replace(link, '')
+    text = re.sub(' +', ' ', text).strip().replace('"', "'")
+    text = text[:1].upper() + text[1:]
+    return (text, links)
