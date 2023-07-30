@@ -63,11 +63,10 @@ def lambda_handler(event, context):
         
         if response:
             http = urllib3.PoolManager()
-            s = response
-            n = 4096
-            for response_chunk in [s[k:k+n] for k in range(0, len(s), n)]:
+            response_chunks = split_long_string(response)
+            for chunk in response_chunks:
                 data = {
-                    "text": response_chunk,
+                    "text": chunk,
                     "chat_id": chat_id,
                     "parse_mode": 'HTML',
                     'disable_web_page_preview': True
@@ -97,14 +96,15 @@ def get_list(episode='next', curr_news_id=None):
     not_discussed = []
     for record in items['Items']:
         for item in record['news']:
+            news_str = '§'
             if get_id(item['added']) == curr_news_id:
-                news_str = f"\n👉<b> {item['text']}</b>"
+                news_str += f"\n👉<b> {item['text']}</b>"
                 current.append(news_str)
             elif len(item['chapters']) == 0:
-                news_str = f"\n- /chapter_{get_id(item['added'])}, /delete_{get_id(item['added'])}, {item['text']}"
+                news_str += f"\n- /chapter_{get_id(item['added'])}, /delete_{get_id(item['added'])}, {item['text']}"
                 not_discussed.append(news_str)
             else:
-                news_str = f"\n<i><strike>- {item['text']}</strike></i>"
+                news_str += f"\n<i><strike>- {item['text']}</strike></i>"
                 discussed.append(news_str)
     response = f'Episode: {episode}'
     for news_str in discussed + current + not_discussed:
@@ -295,3 +295,20 @@ def split_news(news_str):
     text = re.sub(' +', ' ', text).strip().replace('"', "'")
     text = text[:1].upper() + text[1:]
     return (text, links)
+
+def split_long_string(text, max_chunk_length=4096):
+    words = text.split('§')  # Split the text into individual words
+    chunks = []
+    current_chunk = []
+
+    for word in words:
+        if len(' '.join(current_chunk + [word])) <= max_chunk_length:
+            current_chunk.append(word)
+        else:
+            chunks.append(' '.join(current_chunk))
+            current_chunk = [word]
+
+    if current_chunk:
+        chunks.append(' '.join(current_chunk))
+
+    return chunks
