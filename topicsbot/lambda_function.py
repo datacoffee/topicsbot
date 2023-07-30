@@ -96,12 +96,13 @@ def get_list(episode='next', curr_news_id=None):
     not_discussed = []
     for record in items['Items']:
         for item in record['news']:
+            item['text'] = item['text'].replace('\n', ' ')
             news_str = '§'
             if get_id(item['added']) == curr_news_id:
-                news_str += f"\n👉<b> {item['text']}</b>"
+                news_str += f"\n\n👉<b> {item['text']}</b>"
                 current.append(news_str)
             elif len(item['chapters']) == 0:
-                news_str += f"\n- /chapter_{get_id(item['added'])}, /delete_{get_id(item['added'])}, {item['text']}"
+                news_str += f"\n\n- /chapter_{get_id(item['added'])}, /delete_{get_id(item['added'])}, {item['text']}"
                 not_discussed.append(news_str)
             else:
                 news_str += f"\n<i><strike>- {item['text']}</strike></i>"
