@@ -12,6 +12,8 @@ TELEGRAM_TOKEN - API-токен от бота из BotFather
 
 NEWS_CHANNEL - ID чата/группы на сообщения которой будет реагировать
 
+PUBLIC_CHAT - ID публичного чата с ограниченной функциональностью
+
 GCP_JSON - JSON-строка с данными для подключения к GCP
 
 GCP_SPREADSHEET - имя spreadsheet, к которому у бота есть доступ на редактирование

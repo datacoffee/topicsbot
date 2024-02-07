@@ -8,6 +8,7 @@ from datetime import datetime
 
 TOKEN = os.environ['TELEGRAM_TOKEN']
 CHANNEL = os.environ['NEWS_CHANNEL']
+PUBLIC_CHAT = os.environ['PUBLIC_CHAT']
 TABLE = os.environ['DYNAMO_TABLE']
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
 LAMBDA_DIGEST = os.environ['LAMBDA_DIGEST']
@@ -29,11 +30,14 @@ def lambda_handler(event, context):
         message = event["message"]
         thread_id = message["message_thread_id"] if "message_thread_id" in message else False
         
-        if str(chat_id) != CHANNEL:
+        if str(chat_id) == PUBLIC_CHAT:
+            if "#news" in message["text"] and message["text"].strip() != "#news":
+                response = save_news(message)
+        elif str(chat_id) != CHANNEL:
             # response = f"Chat {chat_id} is not allowed\n"
             # response += str(event["message"])
             return {"statusCode": 404}
-        elif "#news" in message["text"] and message["text"].strip() != "#news":  # WORKS
+        elif "#news" in message["text"] and message["text"].strip() != "#news":
             response = save_news(message)
         elif message["text"].startswith("/list"):
             cmd = message["text"].split()
